@@ -1,0 +1,322 @@
+<html>
+<header>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
+	<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
+	<link rel="stylesheet" type="text/css" href="css/toggleButton.css">
+	<title>UD OpenLora</title>
+</header>
+<body>
+	<br>
+	<h1 class="text-center">UD OpenLora</h1>
+	<br>
+	<div class="container">
+		<div id="listDevice">		
+		</div>
+	</div>
+
+
+	<script src="https://www.gstatic.com/firebasejs/5.7.2/firebase.js"></script>
+	<script type="text/javascript">
+
+		// Convert input timestamp to hh:mm:ss dd/MM/yyyy format
+		// Timestamp is seconds format
+		function timeConverter(UNIX_timestamp){
+			var a = new Date(UNIX_timestamp);
+			var months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+			var year = a.getFullYear();
+			var month = months[a.getMonth()];
+			var date = a.getDate();
+			var hour = a.getHours();
+			var min = a.getMinutes();
+			var sec = a.getSeconds();
+			var time = (hour < 10 ? "0" + hour : hour) + ":" + (min < 10 ? "0" + min : min) + ":" + (sec < 10 ? "0" + sec : sec) + " " + (date < 10 ? "0" + date : date) + "/" + month + "/" + year; 
+			return time;
+		}
+
+		// Initialize Firebase
+	  	var config = {
+		    apiKey: "AIzaSyDPpCrfiXNzyYpNIzlW29LGFzfcDg6-6FA",
+		    authDomain: "udopenlora.firebaseapp.com",
+		    databaseURL: "https://udopenlora.firebaseio.com",
+		    projectId: "udopenlora",
+		    storageBucket: "udopenlora.appspot.com",
+		    messagingSenderId: "307028095224"
+	  	};
+		firebase.initializeApp(config);
+		var database = firebase.database();
+
+		// Contain function for device list
+		function listDevice(){
+
+			// Get device list reference
+			var devices = firebase.database().ref('devices');	
+
+			// Set a global timer for function listDeviceLog and function listCurrentData
+			var checkIsListDeviceDone;
+
+			// This event is triggered once for each existing device 
+			// and then again every time a new device is added to the specified path. 
+			// Display devices	
+			devices.on('child_added', function(data) {			
+				isListDeviceDone = false;
+				clearTimeout(checkIsListDeviceDone);
+				$("#listDevice").append(
+				 	'<div class="card" style="border-radius: 0;">' +
+					 	'<div class="card-header">' +
+					 		'<div class="row">' +
+						 		'<div class="col-10 col-sm-8 col-md-10 text-truncate">' +
+
+								 	'<i id="available_' + data.key + '" class="fas fa-circle" style="color : #' + (data.val().available? "29b5a8" : "BDC1C8") + '; margin-right: 15px; font-size: 157%; position: relative; bottom: 3px;"></i>' +
+								 	'<a id="deviceName_' + data.key + '" class="card-link" data-toggle="collapse" href="#' + data.key + '" style="font-size: 210%; color: #' + (data.val().available? "29b5a8" : "BDC1C8") + '">' +
+								 	data.val().name +
+								 	'</a>' +	
+							 	'</div>' +
+							 	'<div class="col-2 col-sm-4 col-md-2">' +
+
+								 	'<button type="button" id="currentState_' + data.key + '" class="btn btn-lg btn-toggle float-right" data-toggle="button" aria-pressed="false" autocomplete="off" ' + (data.val().available? "" : "disabled") + 'style="margin-right: 0px; margin-left: 0px; margin-top: 4px;">' +
+								 		'<div class="handle"></div>' +
+								 	'</button>' +
+							 	'</div>' +
+						 	'</div>' +
+					 	'</div>' +
+					 	'<div id="' + data.key + '" class="collapse" data-parent="#listDevice">' +
+						 	'<div class="card-body">' +
+							 	'<div class="container" style="padding: 0px;">' +
+									' <table class="table table-bordered table-hover text-center" style="margin: 0px;">' +
+										'<thead>'+ 
+											'<tr>' +
+												'<th scope="col">Received At</th>' +
+												'<th scope="col">Status</th>' +
+												'<th scope="col">Source Of Control</th>' +
+											'</tr>' +
+										'</thead>' +
+										'<tbody id="deviceLog_' + data.key + '">' +						
+										'</tbody>' +
+									'</table>' +
+									'<nav aria-label="..." style="margin-top: 20px;">' +
+										'<ul id="paging_' + data.key + '" class="pagination justify-content-center mb-0">' +
+											
+										'</ul>' +
+									'</nav>' +
+								'</div>' +
+							'</div>' +
+					 	'</div>' +
+				 	'</div>'
+				 	);
+
+			 	checkIsListDeviceDone = setTimeout(function(){ 
+			 		isListDeviceDone = true;
+				}, 
+				500
+				);
+
+			});
+
+			// This event is triggered any time a device is modified. 
+			// This includes any modifications to descendants of the device.
+			// Update device properties and state
+			devices.on('child_changed', function(data) {
+				$("#deviceName_" + data.key).text(data.val().name);
+				if (data.val().available) {
+					$("#available_" + data.key).css("color", "#29b5a8");
+					$("#deviceName_" + data.key).css("color", "#007bff");
+					$("#currentState_" + data.key).prop("disabled",false);
+				} else {
+					$("#available_" + data.key).css("color", "#BDC1C8");
+					$("#deviceName_" + data.key).css("color", "#BDC1C8");
+					$("#currentState_" + data.key).prop("disabled",true);
+				}				
+			});						
+		};
+
+		// Contain function for device's log list
+		// Run when all current devices are displayed
+		function listDeviceLog(){
+
+			// Get device's log list reference
+			var deviceLogs = firebase.database().ref('device_log');
+			// This event is triggered once for each existing device's log 
+			// and then again every time a new device's log is added to the specified path. 
+			// Display device's logs
+			deviceLogs.on('child_added', function(data) {
+				var deviceLog = firebase.database().ref('device_log/' + data.key);
+
+				// Set a global timer for function listDeviceLog and function listCurrentData
+				var checkIsListDeviceLogDone;
+
+				var totalChild = 0;
+				var childNumberInPage = 10;
+				var totalPage = 0;
+				var childRemainder = 0;
+				var childRemainderTemp = childRemainder;
+				var count = 0;
+
+				// Get device's log total
+				deviceLog.once('value', function(snapshot) { 
+					totalChild = snapshot.numChildren(); 
+				});
+
+				totalPage = Math.ceil(totalChild / childNumberInPage);
+				childRemainder = totalChild % childNumberInPage;
+				childRemainderTemp = childRemainder;
+
+				for (var i = 0; i < totalPage; i++) {
+					$('#paging_' + data.key).append(
+						'<li class="page-item">' +
+							'<div id="deviceLogPaging_' + data.key + '_page_' + (i + 1) +'" class="page-link deviceLogPaging" >' + (i + 1) + '</div>' +
+						'</li>'
+					);
+				}
+				
+				deviceLog.on('child_added', function(data1) {
+					isListDeviceLogDone = false;
+					clearTimeout(checkIsListDeviceLogDone);
+					var page = 0;
+					if (childRemainder == 0) {
+						if (count == childNumberInPage) {
+							count = 1;
+							totalPage--;
+							page = totalPage;
+						} else {
+							count++;
+							page = totalPage;
+						}
+					} else {
+						if (childRemainderTemp > 0) {
+							childRemainderTemp--;
+							var page = totalPage;
+						} else {
+							if (count == childNumberInPage) {
+								count = 1;
+								totalPage--;
+								page = totalPage - 1;
+							} else {
+								count++;
+								page = totalPage - 1;
+							}
+						}
+					}
+					
+					if (page <= 0) {
+						page = 1;
+					}
+					$('#deviceLog_' + data.key).prepend(		
+						'<tr class="deviceLogPaging_' + data.key + '_page deviceLogPaging_' + data.key + '_page_' + page + '" style="display:' + (page == 1 ? "table-row" : "none") + ';">' +
+							'<th scope="row">' + timeConverter(data1.val().timestamp) + '</th>' +
+							'<td>' + (data1.val().data.status?"ON":"OFF") + '</td>'+
+							'<td>' + data1.val().source_control + '</td>' +
+						'</tr>' 
+					);
+					checkIsListDeviceLogDone = setTimeout(function(){ 
+				 		isListDeviceLogDone = true;
+					}, 
+					500
+					);
+				});
+			});		
+		};
+
+		// Contain function for device's current data list
+		// Run when all current devices are displayed
+		function listCurrentData() {
+			// Get device's current data list reference
+			var currentData = firebase.database().ref('current_data');
+
+			// This event is triggered once for each existing device's current data 
+			// and then again every time a new device's current data is added to the specified path. 
+			// Display device's current data
+			currentData.on('child_added', function(data) {
+				if (data.val().status) {
+					$('#currentState_' + data.key).addClass('active');
+				} else {
+					$('#currentState_' + data.key).removeClass('active');
+				}				
+			});
+
+			// This event is triggered any time a device's current data is modified. 
+			// This includes any modifications to descendants of the device's current data.
+			// Update device's current data status
+			currentData.on('child_changed', function(data) {
+				if (data.val().status) {
+					$('#currentState_' + data.key).addClass('active');
+				} else {
+					$('#currentState_' + data.key).removeClass('active');
+				}
+			});
+
+			// Change device's current data status
+			// Is disabled when device is offline
+			$( "#listDevice button" ).click(function() {
+				var isCheck = $(this).hasClass( "active" );
+				var id = $(this).attr('id');
+				var key = id.slice(13);
+				firebase.database().ref().child('current_data/' + key).update({ status: !isCheck });
+				$(this).toggleClass('active');
+				firebase.database().ref('device_log/' + key).push().set({
+					data: {status: !isCheck},
+					source_control: "Website",
+					timestamp: new Date().getTime()
+				});
+			});
+		};
+		
+		// Paging
+		function showPage() {
+			$( ".deviceLogPaging" ).click(function() {
+				var id = $(this).attr('id');
+				var key = id.slice(16, id.indexOf('_page_'));
+				var page = id.slice(id.indexOf('_page_') + 6);
+				$(".deviceLogPaging_" + key + "_page").css('display','none');
+				$(".deviceLogPaging_" + key + "_page_" +page).css('display','table-row');
+			});
+		}
+	  
+	  
+		// Main
+		listDevice();
+	  	var isListDeviceDone = false;
+	  	var isListDeviceLogDone = false;
+		var deviceTimer = setInterval(function() {
+			if (isListDeviceDone) {
+				listCurrentData();
+				listDeviceLog();
+				clearInterval(deviceTimer);
+			}		
+		},
+		100);
+		var deviceLogTimer = setInterval(function() {
+			if (isListDeviceLogDone) {
+				showPage();
+				var windowWidth =  $( window ).width();
+				if (windowWidth <=576) {
+					$('.btn-toggle').removeClass('btn-lg');
+					$('.btn-toggle').css('margin-top','16px');
+				} else {
+					$('.btn-toggle').addClass('btn-lg');
+					$('.btn-toggle').css('margin-top','4px');
+				}
+
+				$( window ).resize(function() {
+					windowWidth =  $( window ).width();
+					if (windowWidth <=576) {
+						$('.btn-toggle').removeClass('btn-lg');
+						$('.btn-toggle').css('margin-top','16px');
+					} else {
+						$('.btn-toggle').addClass('btn-lg');
+						$('.btn-toggle').css('margin-top','4px');
+					}
+				});
+				clearInterval(deviceLogTimer);
+
+			}		
+		},
+		100);
+		
+		
+	</script>
+</body>
+</html>
